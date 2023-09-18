@@ -1,19 +1,45 @@
-'use client';
+import axios from "axios";
+import { getAccessToken } from "@auth0/nextjs-auth0";
 
-import { useUser } from "@auth0/nextjs-auth0/client";
+const apiClient = axios.create({
+  baseURL: "http://localhost:3001/api",
+});
 
-export default function ProfileClient() {
-  const { user, error, isLoading } = useUser();
+apiClient.interceptors.request.use(async request => {
+  const { accessToken } = await getAccessToken();
+  const headers = request.headers ?? {};
 
-  if (isLoading) return <div>Loading...</div>;
-  if (error) return <div>{error.message}</div>;
+  if (accessToken != undefined) {
+    headers.Authorization = `Bearer ${accessToken}`;
+  }
+  request.headers = headers;
+
+  return request;
+});
+
+type MeResponse = {
+  email: string;
+  name: string;
+};
+
+export async function fetchMe() {
+  try {
+    const {data} = await apiClient.get<MeResponse>("/me");
+    return data;
+  } catch (e) {
+    console.error(e);
+    throw e as Error;
+  }
+}
+
+export default async function ProfileClient() {
+  const me = await fetchMe().catch(e => console.error(e));
 
   return (
-    user && (
+    me && (
       <div>
-        <img src={user.picture || ""} alt={user.name || ""} />
-        <h2>{user.name}</h2>
-        <p>{user.email}</p>
+        <h2>{me.name}</h2>
+        <p>{me.email}</p>
       </div>
     )
   );

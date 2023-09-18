@@ -1,4 +1,5 @@
 import ProfileClient from "@/components/ProfileClient";
+import {Suspense} from "react";
 
 export default function Home() {
   return (
@@ -6,7 +7,10 @@ export default function Home() {
       <a href="/api/auth/login">Login</a>
       <a href="/api/auth/logout">Logout</a>
 
-      <ProfileClient />
+      <Suspense fallback={<div>Loading...</div>}>
+        {/* @ts-ignore */}
+        <ProfileClient />
+      </Suspense>
     </div>
   )
 }
