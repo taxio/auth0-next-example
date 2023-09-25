@@ -20,6 +20,7 @@ apiClient.interceptors.request.use(async request => {
 type GetMeResponse = {
   email: string;
   name: string;
+  picture: string;
 };
 
 export async function getMe() {
@@ -28,16 +29,16 @@ export async function getMe() {
   return data;
 }
 
-type PostSampleRequest = {
+type UpdateSettingsRequest = {
+  name: string;
+}
+
+type UpdateSettingsResponse = {
   message: string;
 }
 
-type PostSampleResponse = {
-  message: string;
-}
-
-export async function postSample(body: PostSampleRequest) {
-  const { data } = await apiClient.post<PostSampleResponse>("/sample", body);
+export async function updateSettings(body: UpdateSettingsRequest) {
+  const { data } = await apiClient.post<UpdateSettingsResponse>("/settings", body);
   console.log("data", data);
   return data;
 }

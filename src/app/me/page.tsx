@@ -1,12 +1,9 @@
-import { postSample } from "@/utils/APIUtils";
-import { ExampleForm } from "@/components/ExampleForm";
+import {getMe} from "@/utils/APIUtils";
 
-export default async function () {
-  const post = async (message: string) => {
-    'use server';
+import {withPageAuthRequired} from "@auth0/nextjs-auth0";
+import {UserProfile} from "@/components/me/UserProfile";
 
-    await postSample({"message": message});
-  };
-
-  return <ExampleForm onSubmit={post} />;
-}
+export default withPageAuthRequired(async function Me() {
+  const me = await getMe();
+  return <UserProfile email={me.email} name={me.name} picture={me.picture} />
+}, { returnTo: '/me' });

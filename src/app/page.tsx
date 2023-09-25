@@ -1,16 +1,15 @@
-import ProfileClient from "@/components/ProfileClient";
-import {Suspense} from "react";
+import {AbsoluteCenter, Box, Card, CardBody, Text} from "@chakra-ui/react";
 
 export default function Home() {
   return (
-    <div>
-      <a href="/api/auth/login">Login</a>
-      <a href="/api/auth/logout">Logout</a>
-
-      <Suspense fallback={<div>Loading...</div>}>
-        {/* @ts-ignore */}
-        <ProfileClient />
-      </Suspense>
-    </div>
+    <Box position='relative' h='100px'>
+      <AbsoluteCenter>
+        <Card align='center'>
+          <CardBody>
+            <Text>ようこそ</Text>
+          </CardBody>
+        </Card>
+      </AbsoluteCenter>
+    </Box>
   )
 }
