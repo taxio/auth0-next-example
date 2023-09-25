@@ -31,7 +31,7 @@ func run() error {
 
 	fAuth0Middleware := auth0Middleware()
 	router.Handle("/api/me", fAuth0Middleware(userInjectionMiddleware(http.HandlerFunc(meHandler))))
-	router.Handle("/api/sample", fAuth0Middleware(userInjectionMiddleware(http.HandlerFunc(postSampleHandler))))
+	router.Handle("/api/settings", fAuth0Middleware(userInjectionMiddleware(http.HandlerFunc(postSettingsHandler))))
 
 	log.Printf("Server listening on port http://localhost:%s/", port)
 	if err := http.ListenAndServe(fmt.Sprintf("0.0.0.0:%s", port), router); err != nil {
@@ -134,6 +134,12 @@ type meResponse struct {
 }
 
 func meHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = w.Write([]byte(`{"message":"method not allowed"}`))
+		return
+	}
+
 	// Get User info
 	authHeader := r.Header.Get("Authorization")
 	accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
@@ -165,7 +171,13 @@ func meHandler(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(body)
 }
 
-func postSampleHandler(w http.ResponseWriter, r *http.Request) {
+func postSettingsHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		_, _ = w.Write([]byte(`{"message":"method not allowed"}`))
+		return
+	}
+
 	userId, ok := r.Context().Value(userInfoKey{}).(string)
 	if !ok {
 		log.Printf("Failed to get user id from context")
