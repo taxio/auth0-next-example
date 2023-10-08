@@ -1,8 +1,8 @@
 'use client';
 
-import React from "react";
-import {useFormik} from "formik";
-import {Button, FormControl, FormLabel, Input} from "@chakra-ui/react";
+import React from 'react';
+import {useFormik} from 'formik';
+import {Button, FormControl, FormLabel, Input} from '@chakra-ui/react';
 
 interface Props {
   defaultName: string;

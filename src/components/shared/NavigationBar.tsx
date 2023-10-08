@@ -1,6 +1,6 @@
 'use client';
 
-import {Box, Button, Flex, Stack, useColorModeValue} from "@chakra-ui/react";
+import {Box, Button, Flex, Stack, useColorModeValue} from '@chakra-ui/react';
 
 import { useUser } from '@auth0/nextjs-auth0/client';
 

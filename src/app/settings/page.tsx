@@ -1,7 +1,7 @@
-import { DemoClient } from "@/utils/APIUtils";
+import { DemoClient } from '@/utils/APIUtils';
 
-import {withPageAuthRequired} from "@auth0/nextjs-auth0";
-import {SettingsForm} from "@/components/settings/SettingsForm";
+import {withPageAuthRequired} from '@auth0/nextjs-auth0';
+import {SettingsForm} from '@/components/settings/SettingsForm';
 
 export default withPageAuthRequired(async function Settings() {
   const me = await DemoClient.getMe({});

@@ -8,7 +8,7 @@ import {
   Table,
   TableContainer,
   Tbody, Td, Tr
-} from "@chakra-ui/react";
+} from '@chakra-ui/react';
 
 interface Props {
   email: string;

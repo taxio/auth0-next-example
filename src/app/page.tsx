@@ -1,4 +1,4 @@
-import {AbsoluteCenter, Box, Card, CardBody, Text} from "@chakra-ui/react";
+import {AbsoluteCenter, Box, Card, CardBody, Text} from '@chakra-ui/react';
 
 export default function Home() {
   return (
