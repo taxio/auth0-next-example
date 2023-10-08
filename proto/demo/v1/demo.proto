@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package demo.v1;
+
+service DemoService {
+  rpc GetMe(GetMeRequest) returns (GetMeResponse) {}
+  rpc UpdateSettings(UpdateSettingsRequest) returns (UpdateSettingsResponse) {}
+}
+
+message GetMeRequest {}
+
+message GetMeResponse {
+  string email = 1;
+  string name = 2;
+  string picture = 3;
+}
+
+message UpdateSettingsRequest {
+  string name = 1;
+  string picture = 2;
+}
+
+message UpdateSettingsResponse {
+  string name = 1;
+  string picture = 2;
+}
