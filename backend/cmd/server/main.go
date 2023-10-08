@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,8 +44,6 @@ func run(ctx context.Context) error {
 type demoServiceServer struct{}
 
 func (d demoServiceServer) GetMe(ctx context.Context, req *connect.Request[demo.GetMeRequest]) (*connect.Response[demo.GetMeResponse], error) {
-	fmt.Println("GetMe")
-
 	accessToken, ok := ctx.Value(accessTokenKey{}).(string)
 	if !ok {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get access token from context"))
@@ -65,8 +62,6 @@ func (d demoServiceServer) GetMe(ctx context.Context, req *connect.Request[demo.
 }
 
 func (d demoServiceServer) UpdateSettings(ctx context.Context, _ *connect.Request[demo.UpdateSettingsRequest]) (*connect.Response[demo.UpdateSettingsResponse], error) {
-	fmt.Println("UpdateSettings")
-
 	accessToken, ok := ctx.Value(accessTokenKey{}).(string)
 	if !ok {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get access token from context"))
@@ -106,10 +101,6 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 type userInfoKey struct{}
 
 type accessTokenKey struct{}
-
-type auth0Payload struct {
-	Sub string `json:"sub"`
-}
 
 type Auth0UserInfoResponse struct {
 	Sub           string `json:"sub"`
@@ -174,8 +165,6 @@ func NewAuthInterceptor() connect.UnaryInterceptorFunc {
 
 	return func(next connect.UnaryFunc) connect.UnaryFunc {
 		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
-			fmt.Println("AuthInterceptor")
-
 			authHeader := req.Header().Get("Authorization")
 			accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
 			if accessToken == "" {
@@ -187,18 +176,12 @@ func NewAuthInterceptor() connect.UnaryInterceptorFunc {
 			if err != nil {
 				return nil, connect.NewError(connect.CodeUnauthenticated, err)
 			}
-			fmt.Printf("claimsVal: %+v\n", claimsVal)
+			claims, ok := claimsVal.(*validator.ValidatedClaims)
+			if !ok {
+				return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get claims from context"))
+			}
 
-			encodedPayload := strings.Split(accessToken, ".")[1]
-			decodedPayload, err := base64.RawURLEncoding.DecodeString(encodedPayload)
-			if err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			var payload auth0Payload
-			if err := json.Unmarshal(decodedPayload, &payload); err != nil {
-				return nil, connect.NewError(connect.CodeInternal, err)
-			}
-			ctx = context.WithValue(ctx, userInfoKey{}, payload.Sub)
+			ctx = context.WithValue(ctx, userInfoKey{}, claims.RegisteredClaims.Subject)
 
 			return next(ctx, req)
 		}
