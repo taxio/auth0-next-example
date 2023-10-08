@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	jwtmiddleware "github.com/auth0/go-jwt-middleware/v2"
 	"github.com/auth0/go-jwt-middleware/v2/jwks"
 	"github.com/auth0/go-jwt-middleware/v2/validator"
 	demo "github.com/taxio/auth0-next-example/backend/gen/demo/v1"
@@ -33,19 +33,24 @@ func main() {
 
 func run(ctx context.Context) error {
 	mux := http.NewServeMux()
+	mux.Handle(demov1connect.NewDemoServiceHandler(
+		&demoServiceServer{},
+		connect.WithInterceptors(NewAuthInterceptor()),
+	))
 
-	path, handler := demov1connect.NewDemoServiceHandler(&demoServiceServer{})
-	mux.Handle(path, auth0Middleware()(userInjectionMiddleware(handler)))
 	fmt.Println("Server listening on", address)
-
 	return http.ListenAndServe(address, h2c.NewHandler(mux, &http2.Server{}))
 }
 
 type demoServiceServer struct{}
 
 func (d demoServiceServer) GetMe(ctx context.Context, req *connect.Request[demo.GetMeRequest]) (*connect.Response[demo.GetMeResponse], error) {
-	authHeader := req.Header().Get("Authorization")
-	accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
+	fmt.Println("GetMe")
+
+	accessToken, ok := ctx.Value(accessTokenKey{}).(string)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get access token from context"))
+	}
 
 	userInfo, err := getAuth0UserInfo(ctx, accessToken)
 	if err != nil {
@@ -59,9 +64,13 @@ func (d demoServiceServer) GetMe(ctx context.Context, req *connect.Request[demo.
 	}), nil
 }
 
-func (d demoServiceServer) UpdateSettings(ctx context.Context, req *connect.Request[demo.UpdateSettingsRequest]) (*connect.Response[demo.UpdateSettingsResponse], error) {
-	authHeader := req.Header().Get("Authorization")
-	accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
+func (d demoServiceServer) UpdateSettings(ctx context.Context, _ *connect.Request[demo.UpdateSettingsRequest]) (*connect.Response[demo.UpdateSettingsResponse], error) {
+	fmt.Println("UpdateSettings")
+
+	accessToken, ok := ctx.Value(accessTokenKey{}).(string)
+	if !ok {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("failed to get access token from context"))
+	}
 
 	userInfo, err := getAuth0UserInfo(ctx, accessToken)
 	if err != nil {
@@ -94,79 +103,12 @@ func (c CustomClaims) Validate(ctx context.Context) error {
 	return nil
 }
 
-func auth0Middleware() func(next http.Handler) http.Handler {
-	issuerURL, err := url.Parse("https://" + os.Getenv("AUTH0_DOMAIN") + "/")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
-
-	jwtValidator, err := validator.New(
-		provider.KeyFunc,
-		validator.RS256,
-		issuerURL.String(),
-		[]string{os.Getenv("AUTH0_AUDIENCE")},
-		validator.WithCustomClaims(
-			func() validator.CustomClaims {
-				return &CustomClaims{}
-			},
-		),
-		validator.WithAllowedClockSkew(time.Minute),
-	)
-	if err != nil {
-		log.Fatalf("Failed to set up the jwt validator: %v", err)
-	}
-
-	errorHandler := func(w http.ResponseWriter, r *http.Request, err error) {
-		log.Printf("Encountered error while validating JWT: %v", err)
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"Failed to validate JWT."}`))
-	}
-
-	middleware := jwtmiddleware.New(
-		jwtValidator.ValidateToken,
-		jwtmiddleware.WithErrorHandler(errorHandler),
-	)
-
-	return func(next http.Handler) http.Handler {
-		return middleware.CheckJWT(next)
-	}
-}
-
 type userInfoKey struct{}
+
+type accessTokenKey struct{}
 
 type auth0Payload struct {
 	Sub string `json:"sub"`
-}
-
-func userInjectionMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
-		encodedPayload := strings.Split(accessToken, ".")[1]
-		decodedPayload, err := base64.RawURLEncoding.DecodeString(encodedPayload)
-		if err != nil {
-			log.Printf("Failed to decode payload: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message":"internal server error"}`))
-			return
-		}
-
-		var payload auth0Payload
-		if err := json.Unmarshal(decodedPayload, &payload); err != nil {
-			log.Printf("Failed to unmarshal payload: %v", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(`{"message":"internal server error"}`))
-			return
-		}
-
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, userInfoKey{}, payload.Sub)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
 }
 
 type Auth0UserInfoResponse struct {
@@ -204,4 +146,61 @@ func getAuth0UserInfo(ctx context.Context, accessToken string) (*Auth0UserInfoRe
 	}
 
 	return &userInfo, nil
+}
+
+func NewAuthInterceptor() connect.UnaryInterceptorFunc {
+	issuerURL, err := url.Parse("https://" + os.Getenv("AUTH0_DOMAIN") + "/")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	provider := jwks.NewCachingProvider(issuerURL, 5*time.Minute)
+
+	jwtValidator, err := validator.New(
+		provider.KeyFunc,
+		validator.RS256,
+		issuerURL.String(),
+		[]string{os.Getenv("AUTH0_AUDIENCE")},
+		validator.WithCustomClaims(
+			func() validator.CustomClaims {
+				return &CustomClaims{}
+			},
+		),
+		validator.WithAllowedClockSkew(time.Minute),
+	)
+	if err != nil {
+		log.Fatalf("Failed to set up the jwt validator: %v", err)
+	}
+
+	return func(next connect.UnaryFunc) connect.UnaryFunc {
+		return func(ctx context.Context, req connect.AnyRequest) (connect.AnyResponse, error) {
+			fmt.Println("AuthInterceptor")
+
+			authHeader := req.Header().Get("Authorization")
+			accessToken := strings.Replace(authHeader, "Bearer ", "", 1)
+			if accessToken == "" {
+				return nil, connect.NewError(connect.CodeUnauthenticated, errors.New("missing access token"))
+			}
+			ctx = context.WithValue(ctx, accessTokenKey{}, accessToken)
+
+			claimsVal, err := jwtValidator.ValidateToken(ctx, accessToken)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeUnauthenticated, err)
+			}
+			fmt.Printf("claimsVal: %+v\n", claimsVal)
+
+			encodedPayload := strings.Split(accessToken, ".")[1]
+			decodedPayload, err := base64.RawURLEncoding.DecodeString(encodedPayload)
+			if err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			var payload auth0Payload
+			if err := json.Unmarshal(decodedPayload, &payload); err != nil {
+				return nil, connect.NewError(connect.CodeInternal, err)
+			}
+			ctx = context.WithValue(ctx, userInfoKey{}, payload.Sub)
+
+			return next(ctx, req)
+		}
+	}
 }
