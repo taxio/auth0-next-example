@@ -9,7 +9,7 @@ export default withPageAuthRequired(async function Settings() {
   const save = async (name: string) => {
     'use server';
 
-    await updateSettings({ name });
+    await updateSettings({ name, picture: 'https://example.com/images/tmp.png' });
   };
 
   return <SettingsForm defaultName={me.name} onSubmit={save} />;

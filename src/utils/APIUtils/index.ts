@@ -2,7 +2,7 @@ import axios from "axios";
 import { getAccessToken } from "@auth0/nextjs-auth0";
 
 const apiClient = axios.create({
-  baseURL: "http://localhost:3001/api",
+  baseURL: "http://127.0.0.1:3001/",
 });
 
 apiClient.interceptors.request.use(async request => {
@@ -24,21 +24,23 @@ type GetMeResponse = {
 };
 
 export async function getMe() {
-  const { data } = await apiClient.get<GetMeResponse>("/me");
+  const { data } = await apiClient.post<GetMeResponse>("demo.v1.DemoService/GetMe", {});
   console.log("data", data);
   return data;
 }
 
 type UpdateSettingsRequest = {
   name: string;
+  picture: string;
 }
 
 type UpdateSettingsResponse = {
-  message: string;
+  name: string;
+  picture: string;
 }
 
 export async function updateSettings(body: UpdateSettingsRequest) {
-  const { data } = await apiClient.post<UpdateSettingsResponse>("/settings", body);
+  const { data } = await apiClient.post<UpdateSettingsResponse>("demo.v1.DemoService/UpdateSettings", body);
   console.log("data", data);
   return data;
 }
